@@ -4,7 +4,8 @@
 #include "translate_baidu.h"
 #include "YoloDetector.h"
 
-ModelWork::ModelWork(ModelRunner* model) : m_model(model)
+ModelWork::ModelWork(QObject* parent, ModelRunner* model) :
+	QObject(parent), m_model(model)
 {
 }
 

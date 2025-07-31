@@ -2,7 +2,8 @@
 #include "YoloWork.h"
 #include "YoloDetector.h"
 
-YoloWork::YoloWork(YoloDetector* detector) : m_detector(detector) 
+YoloWork::YoloWork(QObject* parent, YoloDetector* detector)
+	: QObject(parent), m_detector(detector)
 {
 }
 
@@ -37,6 +38,6 @@ void YoloWork::doWork(const QString& filePath)
 		labelWithScores << item;
 	}
 
-	QImage resultImg(img.data, img.cols, img.rows, img.step, QImage::Format_BGR888);
-	emit signalGetResult(true, { resultImg.copy() /*不加copy崩溃*/, labelWithScores});
+	QImage resultImg = QImage(img.data, img.cols, img.rows, img.step, QImage::Format_BGR888).copy();  /*不加copy崩溃*/
+	emit signalGetResult(true, { resultImg, labelWithScores});
 }

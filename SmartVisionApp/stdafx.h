@@ -26,6 +26,7 @@ using GetYoloResultType = QPair<QImage, QStringList>;
 
 Q_DECLARE_METATYPE(GetModelResultType)
 Q_DECLARE_METATYPE(GetYoloResultType)
+Q_DECLARE_METATYPE(std::vector<float>)
 
 // 解决中文路径图像读取
 cv::Mat imreadWithChinese(const QString& filePath);

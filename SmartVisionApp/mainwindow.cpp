@@ -84,28 +84,29 @@ MainWindow::MainWindow(QWidget* parent)
 		"D:/Projects/SmartVision/model/fish.names");
 
 	// 翻译
-	m_translator = new TranslateHelper(qApp->applicationDirPath() + "/translate_cache.txt");
+	m_translator = new TranslateTask(qApp->applicationDirPath() + "/translate_cache.txt");
+	connect(m_translator, &TranslateTask::signalTranslationFinished, this, &MainWindow::onTranslationFinished);
 	m_textToSpeech = new QTextToSpeech(this);
 	m_textToSpeech->setRate(0);
 	m_textToSpeech->setPitch(1);
 	m_textToSpeech->setVolume(1.0);
 
 	// 初始化模型推理线程
-	m_modelWork = new ModelWork(m_model);
+	m_modelWork = new ModelWork(this,m_model);
 	connect(m_modelWork, &ModelWork::signalGetResult, this, &MainWindow::onModelResultReceived);
 	connect(this, &MainWindow::signalStartModelWork, m_modelWork, &ModelWork::doWork);
 	m_modelWork->moveToThread(&m_modelThread);
 	m_modelThread.start();
 
 	// 初始化 YOLO 检测线程
-	m_generalYoloWork = new YoloWork(m_generalYoloDetector);
+	m_generalYoloWork = new YoloWork(this, m_generalYoloDetector);
 	connect(m_generalYoloWork, &YoloWork::signalGetResult, this, &MainWindow::onYoloResultReceived);
 	connect(this, &MainWindow::signalStartGeneralWork, m_generalYoloWork, &YoloWork::doWork);
 	m_generalYoloWork->moveToThread(&m_generalYoloThread);
 	m_generalYoloThread.start();
 
 	// 初始化鱼类 YOLO 检测线程
-	m_fishYoloWork = new YoloWork(m_fishYoloDetector);
+	m_fishYoloWork = new YoloWork(this, m_fishYoloDetector);
 	connect(m_fishYoloWork, &YoloWork::signalGetResult, this, &MainWindow::onYoloResultReceived);
 	connect(this, &MainWindow::signalStartFishYoloWork, m_fishYoloWork, &YoloWork::doWork);
 	m_fishYoloWork->moveToThread(&m_fishYoloThread);
@@ -168,22 +169,30 @@ MainWindow::MainWindow(QWidget* parent)
 }
 
 MainWindow::~MainWindow() {
-	delete m_translator;
 
-	m_modelThread.quit();
-	m_modelThread.wait();
+	if (m_modelThread.isRunning()) {
+		m_modelThread.quit();
+		m_modelThread.wait();
+	}
 	delete m_model;
-	delete m_modelWork;
 
-	m_generalYoloThread.quit();
-	m_generalYoloThread.wait();
+	if (m_generalYoloThread.isRunning()) {
+		m_generalYoloThread.quit();
+		m_generalYoloThread.wait();
+	}
 	delete m_generalYoloDetector;
-	delete m_generalYoloWork;
 
-	m_fishYoloThread.quit();
-	m_fishYoloThread.wait();
+	if (m_fishYoloThread.isRunning()) {
+		m_fishYoloThread.quit();
+		m_fishYoloThread.wait();
+	}
 	delete m_fishYoloDetector;
-	delete m_fishYoloWork;
+
+	if (m_translator->isRunning()) {
+		m_translator->quit();
+		m_translator->wait();
+	}
+	m_translator->deleteLater();
 }
 MainWindow* MainWindow::getMainWindow()
 {
@@ -215,14 +224,16 @@ void MainWindow::onModelResultReceived(bool success, const GetModelResultType& r
 		QDialogHint::create(errStr, 2000, this);
 		return;
 	}
-
+	
+	QStringList toTranslateStrList;
+	std::vector<float> scores;
 	for (const auto& [label, score] : result) {
 		QString pureStr = QString::fromStdString(label).replace(QRegularExpression(R"([\p{P}\p{S}])"), "");
-		auto translated = m_translator->translate(pureStr);
-		m_txtBrowser->append(QString("%1 %2%").arg(translated).arg(score * 100, 0, 'f', 2));
+		toTranslateStrList.append(pureStr);
+		scores.push_back(score);
 	}
-
-	playText(m_txtBrowser->toPlainText());
+	m_translator->translate(toTranslateStrList, scores);
+	m_translator->start();
 }
 
 void MainWindow::onYoloResultReceived(bool success, const QPair<QImage, QStringList>& result)
@@ -243,4 +254,10 @@ void MainWindow::onYoloResultReceived(bool success, const QPair<QImage, QStringL
 		m_txtBrowserFish->append(spoken);
 	}
 	playText(spoken);
+}
+
+void MainWindow::onTranslationFinished(const QString& result)
+{
+	m_txtBrowser->append(result);
+	playText(m_txtBrowser->toPlainText());
 }

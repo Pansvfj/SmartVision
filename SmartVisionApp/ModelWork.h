@@ -6,7 +6,7 @@ class ModelWork : public QObject
 {
 	Q_OBJECT
 public:
-	explicit ModelWork(ModelRunner* m_model);
+	explicit ModelWork(QObject* parent, ModelRunner* m_model);
 	~ModelWork();
 
 signals:

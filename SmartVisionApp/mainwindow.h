@@ -9,7 +9,7 @@
 #include <QPushButton>
 
 class ModelRunner;
-class TranslateHelper;
+class TranslateTask;
 class ModelWork;
 class YoloDetector;
 class YoloWork;
@@ -32,6 +32,7 @@ signals:
 public slots:
 	void onModelResultReceived(bool success, const GetModelResultType& result);
 	void onYoloResultReceived(bool success, const QPair<QImage, QStringList>& result);
+	void onTranslationFinished(const QString& result);
 
 protected:
     void resizeEvent(QResizeEvent* event) override;
@@ -45,7 +46,7 @@ private:
     QString m_filePath;
 	QPixmap m_pixmap;
 	QPixmap m_YoloPixmap;
-    TranslateHelper* m_translator = nullptr;
+    TranslateTask* m_translator = nullptr;
 	QTextToSpeech* m_textToSpeech = nullptr;
 	QThread* m_thread = nullptr;
 	QTextBrowser* m_txtBrowserYolo = nullptr;

@@ -63,9 +63,6 @@
     <ClInclude Include="ModelRunner.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="translate_baidu.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="YoloDetector.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -81,6 +78,9 @@
       <Filter>Header Files</Filter>
     </QtMoc>
     <QtMoc Include="QDialogHint.h">
+      <Filter>Header Files</Filter>
+    </QtMoc>
+    <QtMoc Include="translate_baidu.h">
       <Filter>Header Files</Filter>
     </QtMoc>
   </ItemGroup>

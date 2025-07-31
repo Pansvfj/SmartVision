@@ -88,6 +88,10 @@ std::vector<std::pair<std::string, float>> ModelRunner::infer(const cv::Mat& ima
 		m_inputNamesCStr.data(), &inputTensor, 1,
 		m_outputNamesCStr.data(), 1);
 
+	if (outputTensors.empty() || !outputTensors.front().IsTensor()) {
+		throw std::runtime_error(("onnx is empty or type error"));
+	}
+
 	float* scores = outputTensors.front().GetTensorMutableData<float>();
 
 	// softmax 归一化

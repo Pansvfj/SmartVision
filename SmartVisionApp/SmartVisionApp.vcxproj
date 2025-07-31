@@ -226,7 +226,7 @@
     <QtMoc Include="ModelWork.h" />
     <QtMoc Include="QDialogHint.h" />
     <ClInclude Include="stdafx.h" />
-    <ClInclude Include="translate_baidu.h" />
+    <QtMoc Include="translate_baidu.h" />
     <ClInclude Include="YoloDetector.h" />
     <QtMoc Include="YoloWork.h" />
   </ItemGroup>

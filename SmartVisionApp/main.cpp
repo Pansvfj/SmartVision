@@ -8,6 +8,7 @@ int main(int argc, char *argv[])
 
     qRegisterMetaType<GetModelResultType>("std::vector<std::pair<std::string,float>>");
     qRegisterMetaType<GetYoloResultType>("QPair<QImage, QStringList>");
+    qRegisterMetaType<std::vector<float>>("std::vector<float>");
 
     MainWindow window;
     window.show();

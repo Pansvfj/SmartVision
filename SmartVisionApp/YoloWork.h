@@ -6,7 +6,7 @@ class YoloWork : public QObject
 {
 	Q_OBJECT
 public:
-	YoloWork(YoloDetector* m_detector);
+	YoloWork(QObject* parent, YoloDetector* m_detector);
 	~YoloWork();
 
 signals:
