@@ -25,6 +25,8 @@ public:
 
 signals:
 	void signalYoloFrameReady(const cv::Mat& frame);
+	void signalStopped();
+
 
 
 public slots:

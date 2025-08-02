@@ -52,6 +52,9 @@ void CameraWorker::slotStopCamera()
 		m_cap.release();
 
 	m_running = false;
+
+	emit signalStopped();
+
 }
 
 void CameraWorker::slotRequestCameraDetail()

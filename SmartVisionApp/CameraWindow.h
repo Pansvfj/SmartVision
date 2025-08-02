@@ -20,6 +20,8 @@ public:
 	explicit CameraWindow(QWidget* parent = nullptr);
 	~CameraWindow();
 
+protected:
+	void closeEvent(QCloseEvent* event) override;
 
 private slots:
 	void onOpenCamera();
@@ -51,4 +53,6 @@ private:
 	// 状态控制
 	bool m_yoloEnabled = false;
 	bool m_yoloBusy = false;
+
+	bool m_cameraClosed = false;
 };
