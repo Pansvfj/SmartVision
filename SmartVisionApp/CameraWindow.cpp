@@ -30,15 +30,16 @@ CameraWindow::CameraWindow(QWidget* parent)
 	setLayout(mainLayout);
 
 	// 初始化线程和工作对象
-	m_worker = new CameraWorker();
-	m_worker->moveToThread(&m_workerThread);
-	connect(&m_workerThread, &QThread::finished, m_worker, &QObject::deleteLater);
-	m_workerThread.start();
+	m_cameraWorker = new CameraWorker();
+	m_cameraWorker->moveToThread(&m_cameraWorkerThread);
+	connect(&m_cameraWorkerThread, &QThread::finished, m_cameraWorker, &QObject::deleteLater);
+	m_cameraWorkerThread.start();
 
 	m_yolo = new YoloDetector("D:/Projects/SmartVision/model/yolov5s.onnx",
 		"D:/Projects/SmartVision/model/coco.names");
 	m_yoloWork = new YoloStreamWork(nullptr, m_yolo);
 	m_yoloWork->moveToThread(&m_yoloThread);
+	connect(&m_yoloThread, &QThread::finished, m_yoloWork, &QObject::deleteLater);
 	m_yoloThread.start();
 
 	// 信号连接
@@ -47,16 +48,16 @@ CameraWindow::CameraWindow(QWidget* parent)
 	connect(m_btnConfig, &QPushButton::clicked, this, &CameraWindow::onConfigCamera);
 	connect(m_btnToggleYolo, &QPushButton::clicked, this, &CameraWindow::onToggleYolo);
 
-	connect(m_worker, &CameraWorker::signalFrameReady, this, &CameraWindow::onFrameCaptured);
-	connect(m_worker, &CameraWorker::signalYoloFrameReady, this, &CameraWindow::onYoloFrameCaptured);
+	connect(m_cameraWorker, &CameraWorker::signalFrameReady, this, &CameraWindow::onFrameCaptured);
+	connect(m_cameraWorker, &CameraWorker::signalYoloFrameReady, this, &CameraWindow::onYoloFrameCaptured);
 	connect(m_yoloWork, &YoloStreamWork::signalGetResult, this, &CameraWindow::onYoloResult);
 }
 
 CameraWindow::~CameraWindow()
 {
-	QMetaObject::invokeMethod(m_worker, "slotStopCamera", Qt::BlockingQueuedConnection);
-	m_workerThread.quit();
-	m_workerThread.wait();
+	QMetaObject::invokeMethod(m_cameraWorker, "slotStopCamera", Qt::BlockingQueuedConnection);
+	m_cameraWorkerThread.quit();
+	m_cameraWorkerThread.wait();
 
 	m_yoloThread.quit();
 	m_yoloThread.wait();
@@ -67,47 +68,47 @@ CameraWindow::~CameraWindow()
 void CameraWindow::onOpenCamera()
 {
 	m_videoLabel->setText(tr("摄像头启动中"));
-	if (m_worker) {
-		QMetaObject::invokeMethod(m_worker, "slotStartCamera", Qt::QueuedConnection);
+	if (m_cameraWorker) {
+		QMetaObject::invokeMethod(m_cameraWorker, "slotStartCamera", Qt::QueuedConnection);
 	}
 }
 
 void CameraWindow::onCloseCamera()
 {
 	m_videoLabel->setText(tr("摄像头已关闭"));
-	if (m_worker) {
-		QMetaObject::invokeMethod(m_worker, "slotStopCamera", Qt::BlockingQueuedConnection);
+	if (m_cameraWorker) {
+		QMetaObject::invokeMethod(m_cameraWorker, "slotStopCamera", Qt::BlockingQueuedConnection);
 	}
 }
 
 void CameraWindow::onConfigCamera()
 {
-	if (!m_worker) return;
+	if (!m_cameraWorker) return;
 
-	m_worker->slotRequestCameraDetail();
-	connect(m_worker, &CameraWorker::signalCameraDetailReady, this, [=](const QString& info) {
-		int w = m_worker->getWidth();
-		int h = m_worker->getHeight();
-		float fps = m_worker->getFps();
+	m_cameraWorker->slotRequestCameraDetail();
+	connect(m_cameraWorker, &CameraWorker::signalCameraDetailReady, this, [=](const QString& info) {
+		int w = m_cameraWorker->getWidth();
+		int h = m_cameraWorker->getHeight();
+		float fps = m_cameraWorker->getFps();
 
 		CameraConfigDialog* dialog = new CameraConfigDialog(w, h, fps, info, this);
 		connect(dialog, &CameraConfigDialog::configSelected, this, [=](int nw, int nh, int nfps) {
-			m_worker->setConfig(nw, nh, nfps);
-			QMetaObject::invokeMethod(m_worker, "slotStopCamera", Qt::BlockingQueuedConnection);
-			QMetaObject::invokeMethod(m_worker, "slotStartCamera", Qt::QueuedConnection);
+			m_cameraWorker->setConfig(nw, nh, nfps);
+			QMetaObject::invokeMethod(m_cameraWorker, "slotStopCamera", Qt::BlockingQueuedConnection);
+			QMetaObject::invokeMethod(m_cameraWorker, "slotStartCamera", Qt::QueuedConnection);
 			});
 		dialog->exec();
-		});
+	}, Qt::UniqueConnection);
 }
 
 void CameraWindow::onToggleYolo()
 {
 	m_yoloEnabled = !m_yoloEnabled;
 	if (m_yoloEnabled) {
-		m_worker->setYolo(m_yolo);
+		m_cameraWorker->setYolo(m_yolo);
 	}
 	else {
-		m_worker->setYolo(nullptr);
+		m_cameraWorker->setYolo(nullptr);
 	}
 	m_btnToggleYolo->setText(m_yoloEnabled ? tr("已开启识别") :  tr("已关闭识别"));
 }
@@ -130,6 +131,6 @@ void CameraWindow::onYoloFrameCaptured(const cv::Mat& frame)
 void CameraWindow::onYoloResult(const cv::Mat& result, const std::vector<YoloDetection>&)
 {
 	QImage img(result.data, result.cols, result.rows, result.step, QImage::Format_BGR888);
-	emit m_worker->signalFrameReady(img.copy());
+	emit m_cameraWorker->signalFrameReady(img.copy());
 	m_yoloBusy = false;
 }

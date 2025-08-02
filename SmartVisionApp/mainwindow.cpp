@@ -207,8 +207,11 @@ MainWindow::~MainWindow() {
 		m_translator->wait();
 	}
 	m_translator->deleteLater();
-	m_cameraWindow->close();
-	m_cameraWindow->deleteLater();
+
+	if (m_cameraWindow) {
+		delete m_cameraWindow;           // 调用析构，释放线程资源
+		m_cameraWindow = nullptr;
+	}
 }
 MainWindow* MainWindow::getMainWindow()
 {
@@ -221,6 +224,13 @@ void MainWindow::resizeEvent(QResizeEvent* event) {
 		m_lbImage->setPixmap(m_pixmap.scaled(m_lbImage->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation));
 	if (!m_YoloPixmap.isNull())
 		m_lbYoloImage->setPixmap(m_YoloPixmap.scaled(m_lbYoloImage->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation));
+}
+
+void MainWindow::closeEvent(QCloseEvent* e)
+{
+	QMainWindow::closeEvent(e);
+	if (m_cameraWindow)
+		m_cameraWindow->close();
 }
 
 void MainWindow::playText(const QString& text) {

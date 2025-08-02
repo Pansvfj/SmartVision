@@ -37,6 +37,7 @@ public slots:
 
 protected:
     void resizeEvent(QResizeEvent* event) override;
+	void closeEvent(QCloseEvent* e) override;
 
 private:
     void playText(const QString& text);
