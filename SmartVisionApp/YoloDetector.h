@@ -5,12 +5,6 @@
 #include <QRect>
 #include <QString>
 
-struct YoloDetection {
-	QRect bbox;
-	QString label;
-	float confidence;
-};
-
 class YoloDetector {
 public:
 	YoloDetector(const std::string& modelPath, const std::string& classPath);

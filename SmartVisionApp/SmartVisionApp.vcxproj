@@ -60,22 +60,22 @@
   </ImportGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|Win32'" Label="QtSettings">
     <QtInstall>5.15.2_msvc2019</QtInstall>
-    <QtModules>core;network;gui;widgets;texttospeech</QtModules>
+    <QtModules>core;network;gui;multimedia;widgets;texttospeech</QtModules>
     <QtBuildConfig>debug</QtBuildConfig>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="QtSettings">
     <QtInstall>5.15.2_msvc2019_64</QtInstall>
-    <QtModules>core;network;gui;widgets;texttospeech</QtModules>
+    <QtModules>core;network;gui;multimedia;widgets;texttospeech</QtModules>
     <QtBuildConfig>debug</QtBuildConfig>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|Win32'" Label="QtSettings">
     <QtInstall>5.15.2_msvc2019</QtInstall>
-    <QtModules>core;network;gui;widgets;texttospeech</QtModules>
+    <QtModules>core;network;gui;multimedia;widgets;texttospeech</QtModules>
     <QtBuildConfig>release</QtBuildConfig>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="QtSettings">
     <QtInstall>5.15.2_msvc2019</QtInstall>
-    <QtModules>core;network;gui;widgets;texttospeech</QtModules>
+    <QtModules>core;network;gui;multimedia;widgets;texttospeech</QtModules>
     <QtBuildConfig>release</QtBuildConfig>
   </PropertyGroup>
   <Target Name="QtMsBuildNotFound" BeforeTargets="CustomBuild;ClCompile" Condition="!Exists('$(QtMsBuild)\qt.targets') or !Exists('$(QtMsBuild)\qt.props')">
@@ -204,6 +204,9 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="CameraConfigDialog.cpp" />
+    <ClCompile Include="CameraWindow.cpp" />
+    <ClCompile Include="CameraWorker.cpp" />
     <ClCompile Include="ModelRunner.cpp" />
     <ClCompile Include="ModelWork.cpp" />
     <ClCompile Include="QDialogHint.cpp" />
@@ -215,6 +218,7 @@
     </ClCompile>
     <ClCompile Include="translate_baidu.cpp" />
     <ClCompile Include="YoloDetector.cpp" />
+    <ClCompile Include="YoloStreamWork.cpp" />
     <ClCompile Include="YoloWork.cpp" />
     <QtRcc Include="SmartVisionApp.qrc" />
     <QtMoc Include="mainwindow.h" />
@@ -222,6 +226,10 @@
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <QtMoc Include="YoloStreamWork.h" />
+    <QtMoc Include="CameraWindow.h" />
+    <QtMoc Include="CameraWorker.h" />
+    <QtMoc Include="CameraConfigDialog.h" />
     <ClInclude Include="ModelRunner.h" />
     <QtMoc Include="ModelWork.h" />
     <QtMoc Include="QDialogHint.h" />

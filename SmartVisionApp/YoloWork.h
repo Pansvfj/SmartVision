@@ -1,12 +1,14 @@
 #pragma once
 
-class YoloDetector;
+#include <QObject>
+#include <opencv2/opencv.hpp>
+#include "YoloDetector.h"
 
 class YoloWork : public QObject
 {
 	Q_OBJECT
 public:
-	YoloWork(QObject* parent, YoloDetector* m_detector);
+	explicit YoloWork(QObject* parent = nullptr, YoloDetector* detector = nullptr);
 	~YoloWork();
 
 signals:

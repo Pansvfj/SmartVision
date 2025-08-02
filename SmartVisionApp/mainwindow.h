@@ -13,6 +13,7 @@ class TranslateTask;
 class ModelWork;
 class YoloDetector;
 class YoloWork;
+class CameraWindow;
 
 class MainWindow : public QMainWindow
 {
@@ -30,7 +31,7 @@ signals:
 	void signalStartFishYoloWork(const QString& filePath);
 
 public slots:
-	void onModelResultReceived(bool success, const GetModelResultType& result);
+	void onModelResultReceived(bool success, const GetModelResultType& result, const QImage& resImg);
 	void onYoloResultReceived(bool success, const QPair<QImage, QStringList>& result);
 	void onTranslationFinished(const QString& result);
 
@@ -66,4 +67,7 @@ private:
 	YoloDetector* m_fishYoloDetector = nullptr;
 	YoloWork* m_fishYoloWork = nullptr;
 	QThread m_fishYoloThread;
+
+	// ÉãÏñÍ·´°¿Ú
+	CameraWindow* m_cameraWindow = nullptr;
 };

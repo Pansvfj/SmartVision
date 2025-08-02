@@ -15,15 +15,16 @@ ModelWork::~ModelWork()
 
 void ModelWork::doWork(const QString& filePath)
 {
+	QImage resImg(filePath);
 	if (m_model == nullptr || filePath.isEmpty()) {
-		emit signalGetResult(false, {});
+		emit signalGetResult(false, {}, resImg);
 		return;
 	}
 	cv::Mat img = imreadWithChinese(filePath);
 	if (img.empty()) {
-		emit signalGetResult(false, {});
+		emit signalGetResult(false, {}, resImg);
 		return;
 	}
 	auto results = m_model->infer(img);
-	emit signalGetResult(true, results);
+	emit signalGetResult(true, results, resImg);
 }

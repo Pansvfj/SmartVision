@@ -18,8 +18,18 @@
 #include <QVBoxLayout>
 #include <QImage>
 #include <QStringList>
+#include <QThread>
+
+#include <QDebug>
 
 #include <opencv2/imgcodecs.hpp>
+
+
+struct YoloDetection {
+	QRect bbox;
+	QString label;
+	float confidence;
+};
 
 using GetModelResultType = std::vector<std::pair<std::string, float>>;
 using GetYoloResultType = QPair<QImage, QStringList>;
@@ -27,6 +37,8 @@ using GetYoloResultType = QPair<QImage, QStringList>;
 Q_DECLARE_METATYPE(GetModelResultType)
 Q_DECLARE_METATYPE(GetYoloResultType)
 Q_DECLARE_METATYPE(std::vector<float>)
+Q_DECLARE_METATYPE(std::vector<YoloDetection>)
+Q_DECLARE_METATYPE(cv::Mat)
 
 // 解决中文路径图像读取
 cv::Mat imreadWithChinese(const QString& filePath);

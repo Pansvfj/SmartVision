@@ -18,6 +18,7 @@
 #include "ModelWork.h"
 #include "YoloWork.h"
 #include "QDialogHint.h"
+#include "CameraWindow.h"
 
 MainWindow* g_mainWindow = nullptr;
 
@@ -32,15 +33,26 @@ MainWindow::MainWindow(QWidget* parent)
 	QVBoxLayout* layout = new QVBoxLayout(centralWidget);
 	layout->setMargin(0);
 	layout->setSpacing(0);
-	layout->setAlignment(Qt::AlignHCenter);
 
 	QPushButton* pbHead = new QPushButton(tr("Open"), this);
 	QLineEdit* leHead = new QLineEdit(this);
 	leHead->setEnabled(false);
 
+	QPushButton* pbCamera = new QPushButton(tr("Camera"), this);
+	m_cameraWindow = new CameraWindow;
+	connect(pbCamera, &QPushButton::clicked, this, [=]() {
+		if (m_cameraWindow->isVisible()) {
+			m_cameraWindow->close();
+		}
+		else {
+			m_cameraWindow->show();
+		}
+	});
+
 	QHBoxLayout* hlHead = new QHBoxLayout();
 	hlHead->addWidget(pbHead);
 	hlHead->addWidget(leHead);
+	hlHead->addWidget(pbCamera);
 
 	m_lbImage = new QLabel(this);
 	m_lbImage->setAlignment(Qt::AlignCenter);
@@ -85,30 +97,35 @@ MainWindow::MainWindow(QWidget* parent)
 
 	// 翻译
 	m_translator = new TranslateTask(qApp->applicationDirPath() + "/translate_cache.txt");
-	connect(m_translator, &TranslateTask::signalTranslationFinished, this, &MainWindow::onTranslationFinished);
+	connect(m_translator, &TranslateTask::signalTranslationFinished,
+		this, &MainWindow::onTranslationFinished, Qt::QueuedConnection);
 	m_textToSpeech = new QTextToSpeech(this);
 	m_textToSpeech->setRate(0);
 	m_textToSpeech->setPitch(1);
 	m_textToSpeech->setVolume(1.0);
 
 	// 初始化模型推理线程
-	m_modelWork = new ModelWork(this,m_model);
+	m_modelWork = new ModelWork(nullptr, m_model);
 	connect(m_modelWork, &ModelWork::signalGetResult, this, &MainWindow::onModelResultReceived);
 	connect(this, &MainWindow::signalStartModelWork, m_modelWork, &ModelWork::doWork);
 	m_modelWork->moveToThread(&m_modelThread);
 	m_modelThread.start();
 
 	// 初始化 YOLO 检测线程
-	m_generalYoloWork = new YoloWork(this, m_generalYoloDetector);
-	connect(m_generalYoloWork, &YoloWork::signalGetResult, this, &MainWindow::onYoloResultReceived);
-	connect(this, &MainWindow::signalStartGeneralWork, m_generalYoloWork, &YoloWork::doWork);
+	m_generalYoloWork = new YoloWork(nullptr /*must! 要不都会在主线程执行*/, m_generalYoloDetector);
+	connect(m_generalYoloWork, &YoloWork::signalGetResult, this, &MainWindow::onYoloResultReceived
+		, Qt::QueuedConnection);
+	connect(this, &MainWindow::signalStartGeneralWork, m_generalYoloWork, &YoloWork::doWork
+		, Qt::QueuedConnection);
 	m_generalYoloWork->moveToThread(&m_generalYoloThread);
 	m_generalYoloThread.start();
 
 	// 初始化鱼类 YOLO 检测线程
-	m_fishYoloWork = new YoloWork(this, m_fishYoloDetector);
-	connect(m_fishYoloWork, &YoloWork::signalGetResult, this, &MainWindow::onYoloResultReceived);
-	connect(this, &MainWindow::signalStartFishYoloWork, m_fishYoloWork, &YoloWork::doWork);
+	m_fishYoloWork = new YoloWork(nullptr, m_fishYoloDetector);
+	connect(m_fishYoloWork, &YoloWork::signalGetResult, this, &MainWindow::onYoloResultReceived
+		, Qt::QueuedConnection);
+	connect(this, &MainWindow::signalStartFishYoloWork, m_fishYoloWork, &YoloWork::doWork
+		, Qt::QueuedConnection);
 	m_fishYoloWork->moveToThread(&m_fishYoloThread);
 	m_fishYoloThread.start();
 
@@ -117,10 +134,8 @@ MainWindow::MainWindow(QWidget* parent)
 		m_txtBrowser->setText(tr("Scanning ..."));
 		m_filePath = QFileDialog::getOpenFileName(this, tr("Select Image"), "D:/Projects/SmartVision/images", "Images (*.png *.jpg *.jpeg)");
 		if (!m_filePath.isEmpty()) {			
-			m_pixmap = QPixmap(m_filePath);
-			m_lbImage->setPixmap(m_pixmap.scaled(m_lbImage->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation));
 			leHead->setText(m_filePath);
-
+			m_lbImage->setText(tr("正在处理图片"));
 			emit signalStartModelWork(m_filePath);
 		}
 		else {
@@ -141,7 +156,6 @@ MainWindow::MainWindow(QWidget* parent)
 			return;
 		}
 		m_txtBrowserYolo->setText(tr("Scanning ..."));
-
 		emit signalStartGeneralWork(m_filePath);
 	});
 
@@ -193,6 +207,8 @@ MainWindow::~MainWindow() {
 		m_translator->wait();
 	}
 	m_translator->deleteLater();
+	m_cameraWindow->close();
+	m_cameraWindow->deleteLater();
 }
 MainWindow* MainWindow::getMainWindow()
 {
@@ -212,11 +228,15 @@ void MainWindow::playText(const QString& text) {
 		m_textToSpeech->say(text);
 }
 
-void MainWindow::onModelResultReceived(bool success, const GetModelResultType& result)
+void MainWindow::onModelResultReceived(bool success, const GetModelResultType& result, const QImage& resImg)
 {
 	m_txtBrowserYolo->clear();
 	m_txtBrowserFish->clear();
 	m_txtBrowser->clear();
+	m_lbImage->setText("");
+
+	m_pixmap = QPixmap::fromImage(resImg);
+	m_lbImage->setPixmap(m_pixmap.scaled(m_lbImage->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation));
 
 	if (!success) {
 		QString errStr = tr("模型推理失败");

@@ -10,7 +10,7 @@ public:
 	~ModelWork();
 
 signals:
-	void signalGetResult(bool success, const GetModelResultType& result);
+	void signalGetResult(bool success, const GetModelResultType& result, const QImage& img);
 
 public slots:
 	void doWork(const QString& filePath);
