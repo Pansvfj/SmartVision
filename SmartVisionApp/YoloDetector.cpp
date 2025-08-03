@@ -10,6 +10,11 @@
 YoloDetector::YoloDetector(const std::string& modelPath, const std::string& classPath)
 	: env(ORT_LOGGING_LEVEL_WARNING, "YoloDetector"), sessionOptions() {
 	sessionOptions.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_ALL);
+
+	// 为推理提提速
+	sessionOptions.SetIntraOpNumThreads(4);   // 单个算子最多用 4 线程
+	sessionOptions.SetInterOpNumThreads(2);   // 最多并发执行 2 个算子
+
 	std::wstring wModelPath(modelPath.begin(), modelPath.end());
 	session = std::make_unique<Ort::Session>(env, wModelPath.c_str(), sessionOptions);
 
@@ -19,6 +24,7 @@ YoloDetector::YoloDetector(const std::string& modelPath, const std::string& clas
 	while (std::getline(file, line)) {
 		classNames.push_back(line);
 	}
+
 }
 
 void YoloDetector::preprocess(const cv::Mat& image, std::vector<float>& inputTensor) {
@@ -41,6 +47,7 @@ void YoloDetector::preprocess(const cv::Mat& image, std::vector<float>& inputTen
 }
 
 std::vector<YoloDetection> YoloDetector::detect(const cv::Mat& image) {
+
 	std::vector<float> inputTensor;
 	preprocess(image, inputTensor);
 
@@ -50,10 +57,14 @@ std::vector<YoloDetection> YoloDetector::detect(const cv::Mat& image) {
 	auto inputTensorOrt = Ort::Value::CreateTensor<float>(memInfo, inputTensor.data(), inputTensor.size(),
 		inputShape.data(), inputShape.size());
 
-	const char* inputNames[] = { "images" };
-	const char* outputNames[] = { "output0" };
+	static const char* inputNames[] = { "images" };
+	static const char* outputNames[] = { "output0" };
 
+	std::chrono::time_point start = std::chrono::high_resolution_clock::now();
 	auto outputTensor = session->Run(Ort::RunOptions{ nullptr }, inputNames, &inputTensorOrt, 1, outputNames, 1);
+	std::chrono::time_point end = std::chrono::high_resolution_clock::now();
+	std::chrono::duration<double, std::milli> elapsed = end - start;
+	qDebug() << "session Run:" << elapsed.count() << " ms";
 
 	float* output = outputTensor.front().GetTensorMutableData<float>();
 	auto outputShape = outputTensor.front().GetTensorTypeAndShapeInfo().GetShape();

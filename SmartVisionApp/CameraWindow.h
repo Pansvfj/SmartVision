@@ -12,6 +12,8 @@
 #include "YoloDetector.h"
 #include "YoloStreamWork.h"
 
+class CameraConfigDialog;
+
 class CameraWindow : public QWidget
 {
 	Q_OBJECT
@@ -19,6 +21,9 @@ class CameraWindow : public QWidget
 public:
 	explicit CameraWindow(QWidget* parent = nullptr);
 	~CameraWindow();
+
+signals:
+	void signalGetCameraDetail();
 
 protected:
 	void closeEvent(QCloseEvent* event) override;
@@ -55,4 +60,7 @@ private:
 	bool m_yoloBusy = false;
 
 	bool m_cameraClosed = false;
+	double m_lastTick = 0;
+
+	CameraConfigDialog* m_dlgCameraConfig = nullptr;
 };

@@ -100,29 +100,31 @@ void CameraWorker::capture()
 	m_cap >> frame;
 	if (frame.empty()) return;
 
-	// 始终统计帧率
-	double now = static_cast<double>(cv::getTickCount());
-	double dt = (now - m_lastTick) / cv::getTickFrequency();
-	m_lastTick = now;
-	if (dt > 0) {
-		m_fps = 0.9 * m_fps + 0.1 * (1.0 / dt);
-	}
-
-	// 绘制 FPS 与时间戳
-	QString fpsText = QString("FPS: %1").arg(m_fps, 0, 'f', 1);
-	QString timeStr = QTime::currentTime().toString("HH:mm:ss.zzz");
-
-	cv::rectangle(frame, cv::Point(5, 5), cv::Point(200, 50), cv::Scalar(0, 0, 0), cv::FILLED);
-	cv::putText(frame, fpsText.toStdString(), cv::Point(10, 25),
-		cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 255, 128), 1);
-	cv::putText(frame, timeStr.toStdString(), cv::Point(10, 45),
-		cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 255, 0), 1);
-
 	// YOLO 实时识别（异步交给 YoloWork）
 	if (m_detector) {
 		emit signalYoloFrameReady(frame.clone());
 		// 注意：YOLO 路径下不 emit signalFrameReady
 		return;
+	}
+	else {
+		// 绘采集帧率
+		// 始终统计帧率
+		double now = static_cast<double>(cv::getTickCount());
+		double dt = (now - m_lastTick) / cv::getTickFrequency();
+		m_lastTick = now;
+		if (dt > 0) {
+			m_fps = 0.9 * m_fps + 0.1 * (1.0 / dt);
+		}
+
+		// 绘制 FPS 与时间戳
+		QString fpsText = QString("FPS: %1").arg(m_fps, 0, 'f', 1);
+		QString timeStr = QTime::currentTime().toString("HH:mm:ss.zzz");
+
+		cv::rectangle(frame, cv::Point(5, 5), cv::Point(200, 50), cv::Scalar(0, 0, 0), cv::FILLED);
+		cv::putText(frame, fpsText.toStdString(), cv::Point(10, 25),
+			cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 255, 128), 1);
+		cv::putText(frame, timeStr.toStdString(), cv::Point(10, 45),
+			cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 255, 0), 1);
 	}
 
 	// 发送帧图像到主线程显示

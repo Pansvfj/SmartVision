@@ -4,6 +4,7 @@
 #include <QDebug>
 #include <QMetaObject>
 #include <QCoreApplication>
+#include <QTime>
 
 CameraWindow::CameraWindow(QWidget* parent)
 	: QWidget(parent)
@@ -35,6 +36,7 @@ CameraWindow::CameraWindow(QWidget* parent)
 	m_cameraWorker->moveToThread(&m_cameraWorkerThread);
 	//connect(&m_cameraWorkerThread, &QThread::finished, m_cameraWorker, &QObject::deleteLater);
 	m_cameraWorkerThread.start();
+	connect(this, &CameraWindow::signalGetCameraDetail, m_cameraWorker, &CameraWorker::slotRequestCameraDetail);
 
 	m_yolo = new YoloDetector("D:/Projects/SmartVision/model/yolov5s.onnx",
 		"D:/Projects/SmartVision/model/coco.names");
@@ -51,6 +53,10 @@ CameraWindow::CameraWindow(QWidget* parent)
 
 	connect(m_cameraWorker, &CameraWorker::signalFrameReady, this, &CameraWindow::onFrameCaptured);
 	connect(m_cameraWorker, &CameraWorker::signalYoloFrameReady, this, &CameraWindow::onYoloFrameCaptured);
+	connect(m_cameraWorker, &CameraWorker::signalCameraError, this, [=]() {
+		m_videoLabel->setPixmap(QPixmap());
+		m_videoLabel->setText(tr("摄像头启动失败"));
+	});
 	connect(m_yoloWork, &YoloStreamWork::signalGetResult, this, &CameraWindow::onYoloResult);
 }
 
@@ -117,20 +123,25 @@ void CameraWindow::onConfigCamera()
 {
 	if (!m_cameraWorker) return;
 
-	m_cameraWorker->slotRequestCameraDetail();
 	connect(m_cameraWorker, &CameraWorker::signalCameraDetailReady, this, [=](const QString& info) {
+		if (m_dlgCameraConfig && m_dlgCameraConfig->isVisible()) {
+			return;
+		}
+
 		int w = m_cameraWorker->getWidth();
 		int h = m_cameraWorker->getHeight();
 		float fps = m_cameraWorker->getFps();
 
-		CameraConfigDialog* dialog = new CameraConfigDialog(w, h, fps, info, this);
-		connect(dialog, &CameraConfigDialog::configSelected, this, [=](int nw, int nh, int nfps) {
+		m_dlgCameraConfig = new CameraConfigDialog(w, h, fps, info, this);
+		connect(m_dlgCameraConfig, &CameraConfigDialog::configSelected, this, [=](int nw, int nh, int nfps) {
 			m_cameraWorker->setConfig(nw, nh, nfps);
 			QMetaObject::invokeMethod(m_cameraWorker, "slotStopCamera", Qt::BlockingQueuedConnection);
 			QMetaObject::invokeMethod(m_cameraWorker, "slotStartCamera", Qt::QueuedConnection);
 			});
-		dialog->exec();
+		m_dlgCameraConfig->exec();
 	}, Qt::UniqueConnection);
+
+	emit signalGetCameraDetail();
 }
 
 void CameraWindow::onToggleYolo()
@@ -156,7 +167,7 @@ void CameraWindow::onFrameCaptured(const QImage& img)
 void CameraWindow::onYoloFrameCaptured(const cv::Mat& frame)
 {
 	if (m_yoloBusy) {
-		qDebug() << "yolo busy!";
+		//qDebug() << "yolo busy!";
 		return;
 	}
 
@@ -170,9 +181,38 @@ void CameraWindow::onYoloFrameCaptured(const cv::Mat& frame)
 		Q_ARG(cv::Mat, frame.clone()));
 }
 
-void CameraWindow::onYoloResult(const cv::Mat& result, const std::vector<YoloDetection>&)
-{
-	QImage img(result.data, result.cols, result.rows, result.step, QImage::Format_BGR888);
+void CameraWindow::onYoloResult(const cv::Mat& result, const std::vector<YoloDetection>&) {
+	// 静态变量用于 FPS 统计
+	static double m_lastTick = 0;
+	static float fps = 0.0f;
+
+	double now = static_cast<double>(cv::getTickCount());
+	double dt = (now - m_lastTick) / cv::getTickFrequency();
+	m_lastTick = now;
+	if (dt > 0) {
+		fps = 0.9f * fps + 0.1f * (1.0f / dt);
+	}
+
+	// 文本内容
+	QString fpsText = QString("FPS: %1").arg(fps, 0, 'f', 1);
+	QString timeStr = QTime::currentTime().toString("HH:mm:ss.zzz");
+
+	// 克隆图像用于绘制
+	cv::Mat frame = result.clone();
+
+	// 背景框
+	cv::rectangle(frame, cv::Point(5, 5), cv::Point(200, 50), cv::Scalar(0, 0, 0), cv::FILLED);
+	// 帧率（绿色）
+	cv::putText(frame, fpsText.toStdString(), cv::Point(10, 25),
+		cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 255, 128), 1);
+	// 时间（黄色）
+	cv::putText(frame, timeStr.toStdString(), cv::Point(10, 45),
+		cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 255, 0), 1);
+
+	// 显示到 UI
+	QImage img(frame.data, frame.cols, frame.rows, frame.step, QImage::Format_BGR888);
 	emit m_cameraWorker->signalFrameReady(img.copy());
+
 	m_yoloBusy = false;
 }
+
