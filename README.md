@@ -1,3 +1,8 @@
+<img width="802" height="639" alt="image" src="https://github.com/user-attachments/assets/79ffd1d0-5ea5-48ff-9e1d-9a02278747e0" />
+<img width="802" height="639" alt="image" src="https://github.com/user-attachments/assets/d089705f-33dc-4af6-8531-4128ff5194e4" />
+<img width="668" height="580" alt="image" src="https://github.com/user-attachments/assets/b3839161-b448-47fe-824d-5c755a731f12" />
+<img width="1286" height="1396" alt="image" src="https://github.com/user-attachments/assets/cdbf2521-29d6-4098-8046-1ccaf5336b3c" />
+
 # 中文介绍
 
   
@@ -92,11 +97,7 @@ SmartVision/
 - ✅ 支持视频流文件分析（.mp4/.avi）
 - ✅ 接入 HTTP 图像流（远程监控）
 - ✅ 引入 OCR 识别 / 手势识别 模型
-
-
-
-
-
+- ✅ 识别帧率提高
 
 
         
