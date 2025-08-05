@@ -91,7 +91,9 @@ SmartVision/
 - ✅ 接入 HTTP 图像流（远程监控）
 - ✅ 引入 OCR 识别 / 手势识别 模型
 
-# 英文介绍
+
+
+# English instructions
 # 🧠 SmartVision: Universal Recognition System
 
 SmartVision is an intelligent vision platform built with **C++**, **Qt**, **OpenCV**, and **ONNX Runtime**. It supports image classification, YOLO-based object detection, real-time camera recognition, asynchronous multi-threading, voice broadcast, and result translation.
@@ -176,7 +178,7 @@ SmartVision/
 
 ---
 
-## 🔁 Expansion
+## 🔁 TODO Expansion
 
 - ✅ Add model selection UI (ResNet, EfficientNet)
 - ✅ Support for video file input (.mp4/.avi)
