@@ -1,4 +1,6 @@
 # 中文介绍
+
+  
 # 🧠 SmartVision 万物识别系统
 
 基于 C++ + Qt + OpenCV + ONNX Runtime 开发的智能图像识别平台，支持本地图像分类、YOLO 实时目标检测、摄像头采集识别、多线程异步处理、语音播报和翻译结果展示。
@@ -92,6 +94,13 @@ SmartVision/
 - ✅ 引入 OCR 识别 / 手势识别 模型
 
 
+
+
+
+
+
+        
+      
 
 # English instructions
 # 🧠 SmartVision: Universal Recognition System
