@@ -1,3 +1,4 @@
+# 中文介绍
 # 🧠 SmartVision 万物识别系统
 
 基于 C++ + Qt + OpenCV + ONNX Runtime 开发的智能图像识别平台，支持本地图像分类、YOLO 实时目标检测、摄像头采集识别、多线程异步处理、语音播报和翻译结果展示。
@@ -89,3 +90,96 @@ SmartVision/
 - ✅ 支持视频流文件分析（.mp4/.avi）
 - ✅ 接入 HTTP 图像流（远程监控）
 - ✅ 引入 OCR 识别 / 手势识别 模型
+
+# 英文介绍
+# 🧠 SmartVision: Universal Recognition System
+
+SmartVision is an intelligent vision platform built with **C++**, **Qt**, **OpenCV**, and **ONNX Runtime**. It supports image classification, YOLO-based object detection, real-time camera recognition, asynchronous multi-threading, voice broadcast, and result translation.
+
+---
+
+## 🚀 Features
+
+- ✅ **Image Classification**: Based on MobileNetV2 with Top-5 output and real-time translation
+- ✅ **Object Detection**: YOLOv5 + custom fish detection model, supporting multiple targets
+- ✅ **Real-time Camera Recognition**: Switch between static or YOLO detection modes
+- ✅ **Multithreading**: AI inference runs in separate threads for a smooth UI
+- ✅ **Text-to-Speech**: Auto narration of results
+- ✅ **Chinese Translation Support**: Labels translated via Baidu API with caching
+
+---
+
+## 📂 Project Structure
+
+```bash
+SmartVision/
+├── main.cpp                    # Application entry
+├── mainwindow.{h,cpp}         # Main UI window logic
+├── ModelRunner.{h,cpp}        # Image classification model
+├── YoloDetector.{h,cpp}       # YOLO ONNX model and detection logic
+├── ModelWork.{h,cpp}          # Classification inference thread
+├── YoloWork.{h,cpp}           # Static image YOLO inference
+├── YoloStreamWork.{h,cpp}     # YOLO detection for camera stream
+├── CameraWindow.{h,cpp}       # Camera window UI logic
+├── CameraWorker.{h,cpp}       # Camera frame grabbing worker
+├── CameraConfigDialog.{h,cpp} # Camera configuration popup
+├── translate_baidu.h          # Baidu translation thread
+├── stdafx.h                   # Common type definitions
+├── model/                     # Model files
+│   ├── mobilenetv2-7.onnx
+│   ├── imagenet_classes.txt
+│   ├── yolov5s.onnx
+│   ├── coco.names
+│   ├── fish.onnx
+│   └── fish.names
+└── images/                    # Example images
+```
+
+---
+
+## 🛠️ Requirements
+
+- **OS**: Windows 10/11 x64
+- **Compiler**: Visual Studio 2019/2022 + Qt VS Tools
+- **Qt**: Qt 5.15.x (MSVC x64 recommended)
+- **ONNX Runtime**: 1.15+
+- **OpenCV**: 4.5+ (with opencv_world)
+- **Baidu Translate API (optional)**: For label translation
+
+---
+
+## ⚙️ Build Instructions
+
+1. Open the `.sln` file using **Qt VS Tools**.
+2. Make sure C++17 is enabled:
+   - C/C++ → Language → C++ Language Standard: `ISO C++17`
+3. Set up ONNX Runtime and OpenCV paths:
+   - Add include & lib directories for ONNX + OpenCV
+4. Build and run `SmartVisionApp`.
+
+---
+
+## 🖼️ Usage Guide
+
+### ✅ Image Classification
+- Click “Open” to select an image
+- Automatically performs inference and shows top-5 labels with translation
+
+### ✅ YOLO Detection
+- Click:
+  - `yolov5s`: Generic COCO model
+  - `Fish Detection`: Custom trained YOLO fish model
+
+### ✅ Real-time Camera
+- Click `Camera` to open live recognition window
+- Supports resolution switching and toggle for YOLO
+
+---
+
+## 🔁 Expansion
+
+- ✅ Add model selection UI (ResNet, EfficientNet)
+- ✅ Support for video file input (.mp4/.avi)
+- ✅ HTTP video stream input (e.g. RTSP)
+- ✅ Add OCR / gesture recognition modules
+
