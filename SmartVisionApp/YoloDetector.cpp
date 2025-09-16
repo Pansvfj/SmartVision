@@ -6,28 +6,26 @@
 #include <fstream>
 #include <iostream>
 #include <QDebug>
+#include <QPainter>
 
 // 构造函数：初始化 ONNX Session，并读取类别名称
 YoloDetector::YoloDetector(const std::string& modelPath, const std::string& classPath)
 	: env(ORT_LOGGING_LEVEL_WARNING, "YoloDetector"), sessionOptions()
 {
-	// 启用图优化
 	sessionOptions.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_ALL);
+	sessionOptions.SetIntraOpNumThreads(4);
+	sessionOptions.SetInterOpNumThreads(2);
 
-	// 设置多线程加速（根据 CPU 核心数可调）
-	sessionOptions.SetIntraOpNumThreads(4);   // 每个算子最多使用 4 个线程
-	sessionOptions.SetInterOpNumThreads(2);   // 同时运行两个算子
-
-	// 加载模型文件
 	std::wstring wModelPath(modelPath.begin(), modelPath.end());
 	session = std::make_unique<Ort::Session>(env, wModelPath.c_str(), sessionOptions);
 
-	// 加载类别名称
+	// 读取类别
 	std::ifstream file(classPath);
-	std::string line;
-	while (std::getline(file, line)) {
-		classNames.push_back(line);
-	}
+	for (std::string line; std::getline(file, line); )
+		if (!line.empty()) classNames.push_back(line);
+
+	// ☆ 关键：从模型读取 I/O 名和输入形状
+	initIoFromModel();
 }
 
 // 图像预处理：resize、BGR→RGB、归一化、展平为 NCHW Tensor
@@ -59,33 +57,35 @@ void YoloDetector::preprocess(const cv::Mat& image, std::vector<float>& inputTen
 // 推理主函数：调用 ONNX Session，获取 raw 输出，再进行后处理
 std::vector<YoloDetection> YoloDetector::detect(const cv::Mat& image)
 {
+	// 若模型是动态，按当前帧自适应一个 32 的倍数（并可设置上限）
+	if (dynamicInput) {
+		int longer = std::max(image.cols, image.rows);
+		int stride = 32;
+		int s = (longer + stride - 1) / stride * stride; // 向上取整到 32 的倍数
+		s = std::min(std::max(s, 320), 1280);            // 可选：限制在 [320,1280]
+		inputWidth = s;
+		inputHeight = s;
+	}
+
+	// ↓↓↓ 下面就是你现有的流程（预处理 -> ORT.Run -> 后处理）
 	std::vector<float> inputTensor;
 	preprocess(image, inputTensor);
 
-	// 创建输入张量
-	Ort::MemoryInfo memInfo = Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault);
-	std::array<int64_t, 4> inputShape = { 1, 3, inputHeight, inputWidth };
-	auto inputTensorOrt = Ort::Value::CreateTensor<float>(
-		memInfo, inputTensor.data(), inputTensor.size(), inputShape.data(), inputShape.size());
+	Ort::MemoryInfo mem = Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault);
+	std::array<int64_t, 4> shape = { 1,3,inputHeight,inputWidth };
+	Ort::Value in = Ort::Value::CreateTensor<float>(mem, inputTensor.data(), inputTensor.size(),
+		shape.data(), shape.size());
 
-	// YOLOv5 的默认输入输出名称
-	static const char* inputNames[] = { "images" };
-	static const char* outputNames[] = { "output0" };
+	auto outputs = session->Run(Ort::RunOptions{ nullptr },
+		inNames.data(), &in, 1,
+		outNames.data(), outNames.size());
 
-	// 记录执行耗时
-	std::chrono::time_point start = std::chrono::high_resolution_clock::now();
-	auto outputTensor = session->Run(Ort::RunOptions{ nullptr }, inputNames, &inputTensorOrt, 1, outputNames, 1);
-	std::chrono::time_point end = std::chrono::high_resolution_clock::now();
-	std::chrono::duration<double, std::milli> elapsed = end - start;
-	qDebug() << "session Run:" << elapsed.count() << " ms";
+	auto& out0 = outputs.front();
+	auto  shp = out0.GetTensorTypeAndShapeInfo().GetShape(); // [1, N, 5+nc]
+	size_t elems = 1; for (size_t i = 1; i < shp.size(); ++i) elems *= (size_t)shp[i];
+	float* ptr = out0.GetTensorMutableData<float>();
+	std::vector<float> outputData(ptr, ptr + elems);
 
-	// 读取输出张量数据
-	float* output = outputTensor.front().GetTensorMutableData<float>();
-	auto outputShape = outputTensor.front().GetTensorTypeAndShapeInfo().GetShape();
-
-	std::vector<float> outputData(output, output + outputShape[1] * outputShape[2]);
-
-	// 进入后处理阶段（解码 + NMS）
 	return postprocess(image, outputData);
 }
 
@@ -157,9 +157,63 @@ std::vector<YoloDetection> YoloDetector::postprocess(const cv::Mat& image, std::
 	return results;
 }
 
+// cv::Mat (BGR) <-> QImage (RGB) 转换
+static QImage cvMatToQImage(const cv::Mat& bgr) {
+	cv::Mat rgb; cv::cvtColor(bgr, rgb, cv::COLOR_BGR2RGB);
+	return QImage(rgb.data, rgb.cols, rgb.rows, rgb.step, QImage::Format_RGB888).copy();
+}
+static cv::Mat qImageToCvMat(const QImage& img) {
+	QImage rgb = img.convertToFormat(QImage::Format_RGB888);
+	cv::Mat mat(rgb.height(), rgb.width(), CV_8UC3,
+		const_cast<uchar*>(rgb.bits()), rgb.bytesPerLine());
+	cv::Mat bgr; cv::cvtColor(mat, bgr, cv::COLOR_RGB2BGR);
+	return bgr.clone();
+}
+
 // 绘制检测结果（红框 + 标签 + 置信度），用于可视化
 void drawDetections(cv::Mat& image, const std::vector<YoloDetection>& detections)
 {
+#if 0 // 使用 Qt 绘图中文
+	// 1) Mat -> QImage
+	QImage qimg = cvMatToQImage(image);
+
+	// 2) 用 QPainter 画框和中文
+	QPainter p(&qimg);
+	p.setRenderHint(QPainter::Antialiasing);
+	p.setRenderHint(QPainter::TextAntialiasing);
+
+	// 选择支持中文的字体（Windows 下“微软雅黑”；跨平台可用 Noto Sans CJK）
+	QFont font("Microsoft YaHei", 16, QFont::DemiBold);
+	p.setFont(font);
+	QFontMetrics fm(font);
+
+	for (const auto& det : detections) {
+		QRect r(det.bbox.x(), det.bbox.y(), det.bbox.width(), det.bbox.height());
+
+		// 边框
+		p.setPen(QPen(QColor(255, 0, 0), 2));
+		p.setBrush(Qt::NoBrush);
+		p.drawRect(r);
+
+		// 标签 & 置信度（中文 OK）
+		QString text = QString("%1 %2%%")
+			.arg(det.label)
+			.arg(qRound(det.confidence * 100.0));
+
+		// 文字背景条（红色），避免整块遮挡
+		QRect tb = fm.boundingRect(text).adjusted(-6, -4, 6, 4);
+		tb.moveTopLeft(QPoint(r.x(), std::max(0, r.y() - tb.height())));
+		p.fillRect(tb, QColor(255, 0, 0));
+
+		// 白色文字
+		p.setPen(Qt::white);
+		p.drawText(tb.adjusted(6, 4, -6, -4), text);
+	}
+	p.end();
+
+	// 3) QImage -> Mat
+	image = qImageToCvMat(qimg);
+#else
 	for (const auto& det : detections) {
 		cv::Rect rect(det.bbox.x(), det.bbox.y(), det.bbox.width(), det.bbox.height());
 		cv::rectangle(image, rect, cv::Scalar(0, 0, 255), 2);  // 红色边框
@@ -185,4 +239,61 @@ void drawDetections(cv::Mat& image, const std::vector<YoloDetection>& detections
 			cv::FONT_HERSHEY_SIMPLEX, fontScale,
 			cv::Scalar(255, 255, 255), thickness);
 	}
+#endif
 }
+
+// YoloDetector.cpp
+void YoloDetector::initIoFromModel()
+{
+	Ort::AllocatorWithDefaultOptions alloc;
+
+	// 输入/输出名
+	inNamesStr.clear(); outNamesStr.clear();
+	inNames.clear();    outNames.clear();
+
+	size_t ni = session->GetInputCount();
+	for (size_t i = 0; i < ni; ++i) {
+		Ort::AllocatedStringPtr n = session->GetInputNameAllocated(i, alloc);
+		inNamesStr.emplace_back(n.get());
+	}
+	size_t no = session->GetOutputCount();
+	for (size_t i = 0; i < no; ++i) {
+		Ort::AllocatedStringPtr n = session->GetOutputNameAllocated(i, alloc);
+		outNamesStr.emplace_back(n.get());
+	}
+	for (auto& s : inNamesStr)  inNames.push_back(s.c_str());
+	for (auto& s : outNamesStr) outNames.push_back(s.c_str());
+
+	// 输入形状（通常是 [1,3,H,W] 或 [-1,3,-1,-1]）
+	auto ti = session->GetInputTypeInfo(0).GetTensorTypeAndShapeInfo();
+	auto shp = ti.GetShape();
+
+	dynamicInput = true; // 先假设是动态
+	if (shp.size() == 4) {
+		int64_t H = shp[2];
+		int64_t W = shp[3];
+		if (H > 0 && W > 0) {           // 静态尺寸
+			inputHeight = (int)H;
+			inputWidth = (int)W;
+			dynamicInput = false;
+		}
+	}
+
+	// 兜底（仍不确定时），默认 896
+	if (inputWidth == 0 || inputHeight == 0) {
+		inputWidth = 896;
+		inputHeight = 896;
+		dynamicInput = true;            // 允许后续按帧自适应
+	}
+
+#ifdef _DEBUG
+	qDebug() << "Model IO:";
+	for (size_t i = 0; i < inNamesStr.size(); ++i)  qDebug() << "  In" << i << inNamesStr[i].c_str();
+	for (size_t i = 0; i < outNamesStr.size(); ++i) qDebug() << "  Out" << i << outNamesStr[i].c_str();
+	qDebug() << "Input shape:" << (int)shp[0] << (int)shp[1]
+		<< (shp.size() > 2 ? (int)shp[2] : -1) << (shp.size() > 3 ? (int)shp[3] : -1)
+		<< " dynamic?" << (dynamicInput ? "yes" : "no")
+		<< " using:" << inputWidth << "x" << inputHeight;
+#endif
+}
+

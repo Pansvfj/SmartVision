@@ -17,6 +17,17 @@ public:
 	std::vector<YoloDetection> detect(const cv::Mat& image);
 
 private:
+
+
+	// 图像预处理：resize、归一化、通道调整，生成输入张量数据
+	void preprocess(const cv::Mat& image, std::vector<float>& inputTensor);
+
+	// 推理结果后处理：解码边界框、类别置信度、NMS 抑制
+	std::vector<YoloDetection> postprocess(const cv::Mat& image, std::vector<float>& output);
+
+	void initIoFromModel();
+
+private:
 	// ONNXRuntime 推理核心组件
 	Ort::Env env;                         // 推理环境（负责日志等级、上下文）
 	std::unique_ptr<Ort::Session> session;// 会话对象，执行实际的推理
@@ -25,16 +36,13 @@ private:
 	std::vector<std::string> classNames;  // 类别名称列表，从 .names 文件中读取
 
 	// 推理输入相关参数
-	int inputWidth = 640;   // 输入图像宽度（YOLO 模型要求）
-	int inputHeight = 640;  // 输入图像高度
-	float confThreshold = 0.25f;  // 置信度阈值，低于此值的目标将被丢弃
+	int inputWidth = 0;   // 输入图像宽度（YOLO 模型要求）
+	int inputHeight = 0;  // 输入图像高度
+	float confThreshold = 0.35f;  // 置信度阈值，低于此值的目标将被丢弃
 	float iouThreshold = 0.45f;   // 非极大值抑制的 IOU 阈值
-
-	// 图像预处理：resize、归一化、通道调整，生成输入张量数据
-	void preprocess(const cv::Mat& image, std::vector<float>& inputTensor);
-
-	// 推理结果后处理：解码边界框、类别置信度、NMS 抑制
-	std::vector<YoloDetection> postprocess(const cv::Mat& image, std::vector<float>& output);
+	std::vector<std::string> inNamesStr, outNamesStr;
+	std::vector<const char*> inNames, outNames;
+	bool dynamicInput = false;   // 模型是否动态输入
 
 	// 输入图像缩放因子（用于坐标映射）
 	float scaleX = 1.0f;
