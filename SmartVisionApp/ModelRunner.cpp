@@ -6,52 +6,61 @@
 #include <algorithm>
 
 // 构造函数：加载 ONNX 模型并读取标签文件
+// ==== 构造函数：支持 GPU/CPU 切换，失败自动回退到 CPU ====
 ModelRunner::ModelRunner(const std::string& modelPath, const std::string& labelPath)
-	: m_env(ORT_LOGGING_LEVEL_WARNING, "SmartVision"),  // 创建 ONNX Runtime 环境，指定日志级别
+	: m_env(ORT_LOGGING_LEVEL_WARNING, "SmartVision"),
 	m_session(nullptr),
-	m_sessionOptions()
+	m_sessionOptions(),
+	m_allocator()
 {
-	// 设置 ONNX 推理线程数和优化等级
-	m_sessionOptions.SetIntraOpNumThreads(1);  // 单线程算子执行
-	m_sessionOptions.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_ALL);  // 启用图优化
+	// 1) ORT 基本优化/线程
+	m_sessionOptions.SetIntraOpNumThreads(1);
+	m_sessionOptions.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_ALL);
 
-	// 将模型路径转换为宽字符串
-	std::wstring wModelPath(modelPath.begin(), modelPath.end());
+	// 2) 记录模型路径，尝试按当前配置创建会话（优先 GPU）
+	m_modelPath = modelPath;
 
-	// 检查模型文件是否存在
-	if (!std::ifstream(wModelPath).good()) {
-		throw std::runtime_error("模型文件不存在: " + modelPath);
+	// （可选）存在性检查，保持与你原来的实现一致
+	{
+		std::wstring wModelPath(modelPath.begin(), modelPath.end());
+		if (!std::ifstream(wModelPath).good()) {
+			throw std::runtime_error("模型文件不存在: " + modelPath);
+		}
+	}
+	if (!createOrtSession(modelPath)) {
+		// 若 GPU 创建失败（CUDA 依赖或 Provider 不可用），回退到 CPU
+		m_useGPU = false;
+		if (!createOrtSession(modelPath)) {
+			throw std::runtime_error("ONNX model loading failed (CPU/GPU unavailable)");
+		}
 	}
 
-	// 尝试加载模型文件
-	try {
-		m_session = Ort::Session(m_env, wModelPath.c_str(), m_sessionOptions);
-	}
-	catch (const Ort::Exception& e) {
-		throw std::runtime_error("ONNX模型加载失败: " + std::string(e.what()));
+	// 3) 获取输入节点名称（保持你原来的做法）
+	{
+		size_t inputCount = m_session.GetInputCount();
+		for (size_t i = 0; i < inputCount; ++i) {
+			Ort::AllocatedStringPtr name = m_session.GetInputNameAllocated(i, m_allocator);
+			m_inputNamesStr.push_back(name.get());
+		}
+		for (const auto& s : m_inputNamesStr)
+			m_inputNamesCStr.push_back(s.c_str());
 	}
 
-	// 获取输入节点名称
-	size_t inputCount = m_session.GetInputCount();
-	for (size_t i = 0; i < inputCount; ++i) {
-		Ort::AllocatedStringPtr name = m_session.GetInputNameAllocated(i, m_allocator);
-		m_inputNamesStr.push_back(name.get());
+	// 4) 获取输出节点名称（保持你原来的做法）
+	{
+		size_t outputCount = m_session.GetOutputCount();
+		for (size_t i = 0; i < outputCount; ++i) {
+			Ort::AllocatedStringPtr name = m_session.GetOutputNameAllocated(i, m_allocator);
+			m_outputNamesStr.push_back(name.get());
+		}
+		for (const auto& s : m_outputNamesStr)
+			m_outputNamesCStr.push_back(s.c_str());
 	}
-	for (const auto& s : m_inputNamesStr)
-		m_inputNamesCStr.push_back(s.c_str());  // 转换为 const char* 形式供推理时使用
 
-	// 获取输出节点名称
-	size_t outputCount = m_session.GetOutputCount();
-	for (size_t i = 0; i < outputCount; ++i) {
-		Ort::AllocatedStringPtr name = m_session.GetOutputNameAllocated(i, m_allocator);
-		m_outputNamesStr.push_back(name.get());
-	}
-	for (const auto& s : m_outputNamesStr)
-		m_outputNamesCStr.push_back(s.c_str());
-
-	// 加载标签文件
+	// 5) 加载标签文件（保持你原来的做法）
 	loadLabels(labelPath);
 }
+
 
 // 加载标签文件，每一行对应一个类别名称
 void ModelRunner::loadLabels(const std::string& labelPath)
@@ -142,3 +151,33 @@ std::vector<std::pair<std::string, float>> ModelRunner::infer(const cv::Mat& ima
 
 	return top5;
 }
+
+// 同样不要拷贝成员 m_sessionOptions，直接重建一份本地 so
+bool ModelRunner::createOrtSession(const std::string& modelPath) {
+	try {
+		Ort::SessionOptions so;
+		so.SetIntraOpNumThreads(1);
+		so.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_ALL);
+
+		if (m_useGPU) {
+			qDebug() << "[ModelRunner] Prefer accel, device =" << m_deviceId;
+			AppendWithFallback(so, m_deviceId);   // <<<<<< 这里用 m_deviceId
+		}
+		else {
+			qDebug() << "[ModelRunner] Force CPU";
+		}
+
+		std::wstring wModelPath(modelPath.begin(), modelPath.end());
+		m_session = Ort::Session(m_env, wModelPath.c_str(), so);
+		return true;
+	}
+	catch (const Ort::Exception& e) {
+		qDebug() << "[ModelRunner] createOrtSession failed:" << e.what();
+		return false;
+	}
+}
+
+bool ModelRunner::recreateSession(const std::string& modelPath) {
+	return createOrtSession(modelPath);
+}
+

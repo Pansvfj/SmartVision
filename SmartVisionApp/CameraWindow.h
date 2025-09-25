@@ -11,6 +11,8 @@
 #include "CameraWorker.h"
 #include "YoloDetector.h"
 #include "YoloStreamWork.h"
+#include <QComboBox>
+#include <QSpinBox>
 
 class CameraConfigDialog;
 
@@ -63,4 +65,12 @@ private:
 	double m_lastTick = 0;
 
 	CameraConfigDialog* m_dlgCameraConfig = nullptr;
+
+	// 新增 UI 控件
+	QComboBox* m_camProvBox = nullptr;
+	QSpinBox* m_camDevSpin = nullptr;
+	QPushButton* m_camApplyBtn = nullptr;
+	bool m_camUseGPU = true;
+	int  m_camDevId = 0;
+
 };

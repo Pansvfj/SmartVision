@@ -16,6 +16,13 @@ public:
 	// 执行目标检测，返回检测结果数组
 	std::vector<YoloDetection> detect(const cv::Mat& image);
 
+	// === 新增：推理设备控制 ===
+	void setUseGPU(bool on) { m_useGPU = on; }
+	void setDeviceId(int id) { m_deviceId = id; }
+	bool useGPU() const { return m_useGPU; }
+	int  deviceId() const { return m_deviceId; }
+	bool recreateSession(const std::string& modelPath); // 热重建 ORT 会话
+
 private:
 
 
@@ -47,6 +54,10 @@ private:
 	// 输入图像缩放因子（用于坐标映射）
 	float scaleX = 1.0f;
 	float scaleY = 1.0f;
+
+	bool createOrtSession(const std::string& modelPath); // 按当前配置建会话
+	bool m_useGPU = true;
+	int  m_deviceId = 0;
 };
 
 // 工具函数：在图像上绘制检测结果（边框 + 标签 + 置信度）

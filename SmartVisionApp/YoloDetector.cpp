@@ -1,4 +1,4 @@
-#include "stdafx.h"
+ï»¿#include "stdafx.h"
 #include "YoloDetector.h"
 #include <cmath>
 #include <algorithm>
@@ -8,7 +8,8 @@
 #include <QDebug>
 #include <QPainter>
 
-// ¹¹Ôìº¯Êı£º³õÊ¼»¯ ONNX Session£¬²¢¶ÁÈ¡Àà±ğÃû³Æ
+
+// æ„é€ å‡½æ•°ï¼šåˆå§‹åŒ– ONNX Sessionï¼Œå¹¶è¯»å–ç±»åˆ«åç§°
 YoloDetector::YoloDetector(const std::string& modelPath, const std::string& classPath)
 	: env(ORT_LOGGING_LEVEL_WARNING, "YoloDetector"), sessionOptions()
 {
@@ -16,33 +17,43 @@ YoloDetector::YoloDetector(const std::string& modelPath, const std::string& clas
 	sessionOptions.SetIntraOpNumThreads(4);
 	sessionOptions.SetInterOpNumThreads(2);
 
+#if 0
 	std::wstring wModelPath(modelPath.begin(), modelPath.end());
 	session = std::make_unique<Ort::Session>(env, wModelPath.c_str(), sessionOptions);
+#endif 
+	if (!createOrtSession(modelPath)) {
+		// å¦‚æœ GPU åˆ›å»ºå¤±è´¥ï¼ˆCUDA ä¾èµ–æˆ– Provider ä¸å¯ç”¨ï¼‰ï¼Œåˆ™å›é€€ CPU
+		m_useGPU = false;
+		(void)createOrtSession(modelPath);
+	}
 
-	// ¶ÁÈ¡Àà±ğ
-	std::ifstream file(classPath);
-	for (std::string line; std::getline(file, line); )
-		if (!line.empty()) classNames.push_back(line);
+	// è¯»å–ç±»åˆ«
+	{
+		std::ifstream file(classPath);
+		for (std::string line; std::getline(file, line); )
+			if (!line.empty())
+				classNames.push_back(line);
+	}
 
-	// ¡î ¹Ø¼ü£º´ÓÄ£ĞÍ¶ÁÈ¡ I/O ÃûºÍÊäÈëĞÎ×´
+	// â˜† å…³é”®ï¼šä»æ¨¡å‹è¯»å– I/O åå’Œè¾“å…¥å½¢çŠ¶
 	initIoFromModel();
 }
 
-// Í¼ÏñÔ¤´¦Àí£ºresize¡¢BGR¡úRGB¡¢¹éÒ»»¯¡¢Õ¹Æ½Îª NCHW Tensor
+// å›¾åƒé¢„å¤„ç†ï¼šresizeã€BGRâ†’RGBã€å½’ä¸€åŒ–ã€å±•å¹³ä¸º NCHW Tensor
 void YoloDetector::preprocess(const cv::Mat& image, std::vector<float>& inputTensor)
 {
 	cv::Mat resized, rgb;
 
-	// ¼ÇÂ¼Ëõ·Å±ÈÀı£¨ÓÃÓÚºó´¦Àí»¹Ô­×ø±ê£©
+	// è®°å½•ç¼©æ”¾æ¯”ä¾‹ï¼ˆç”¨äºåå¤„ç†è¿˜åŸåæ ‡ï¼‰
 	scaleX = static_cast<float>(inputWidth) / image.cols;
 	scaleY = static_cast<float>(inputHeight) / image.rows;
 
-	// Ëõ·ÅÊäÈëÍ¼Ïñ
+	// ç¼©æ”¾è¾“å…¥å›¾åƒ
 	cv::resize(image, resized, cv::Size(inputWidth, inputHeight));
-	// OpenCV Ä¬ÈÏÊÇ BGR ¡ú ×ª³É RGB
+	// OpenCV é»˜è®¤æ˜¯ BGR â†’ è½¬æˆ RGB
 	cv::cvtColor(resized, rgb, cv::COLOR_BGR2RGB);
 
-	// Éú³É¹éÒ»»¯ºóµÄ NCHW ¸ñÊ½ÕÅÁ¿
+	// ç”Ÿæˆå½’ä¸€åŒ–åçš„ NCHW æ ¼å¼å¼ é‡
 	inputTensor.resize(3 * inputHeight * inputWidth);
 	int idx = 0;
 	for (int c = 0; c < 3; ++c) {
@@ -54,20 +65,20 @@ void YoloDetector::preprocess(const cv::Mat& image, std::vector<float>& inputTen
 	}
 }
 
-// ÍÆÀíÖ÷º¯Êı£ºµ÷ÓÃ ONNX Session£¬»ñÈ¡ raw Êä³ö£¬ÔÙ½øĞĞºó´¦Àí
+// æ¨ç†ä¸»å‡½æ•°ï¼šè°ƒç”¨ ONNX Sessionï¼Œè·å– raw è¾“å‡ºï¼Œå†è¿›è¡Œåå¤„ç†
 std::vector<YoloDetection> YoloDetector::detect(const cv::Mat& image)
 {
-	// ÈôÄ£ĞÍÊÇ¶¯Ì¬£¬°´µ±Ç°Ö¡×ÔÊÊÓ¦Ò»¸ö 32 µÄ±¶Êı£¨²¢¿ÉÉèÖÃÉÏÏŞ£©
+	// è‹¥æ¨¡å‹æ˜¯åŠ¨æ€ï¼ŒæŒ‰å½“å‰å¸§è‡ªé€‚åº”ä¸€ä¸ª 32 çš„å€æ•°ï¼ˆå¹¶å¯è®¾ç½®ä¸Šé™ï¼‰
 	if (dynamicInput) {
 		int longer = std::max(image.cols, image.rows);
 		int stride = 32;
-		int s = (longer + stride - 1) / stride * stride; // ÏòÉÏÈ¡Õûµ½ 32 µÄ±¶Êı
-		s = std::min(std::max(s, 320), 1280);            // ¿ÉÑ¡£ºÏŞÖÆÔÚ [320,1280]
+		int s = (longer + stride - 1) / stride * stride; // å‘ä¸Šå–æ•´åˆ° 32 çš„å€æ•°
+		s = std::min(std::max(s, 320), 1280);            // å¯é€‰ï¼šé™åˆ¶åœ¨ [320,1280]
 		inputWidth = s;
 		inputHeight = s;
 	}
 
-	// ¡ı¡ı¡ı ÏÂÃæ¾ÍÊÇÄãÏÖÓĞµÄÁ÷³Ì£¨Ô¤´¦Àí -> ORT.Run -> ºó´¦Àí£©
+	// â†“â†“â†“ ä¸‹é¢å°±æ˜¯ä½ ç°æœ‰çš„æµç¨‹ï¼ˆé¢„å¤„ç† -> ORT.Run -> åå¤„ç†ï¼‰
 	std::vector<float> inputTensor;
 	preprocess(image, inputTensor);
 
@@ -89,7 +100,7 @@ std::vector<YoloDetection> YoloDetector::detect(const cv::Mat& image)
 	return postprocess(image, outputData);
 }
 
-// ºó´¦Àíº¯Êı£º½« raw tensor ×ªÎª¼ì²â½á¹û£¬Ö´ĞĞ NMS£¬Éú³É YoloDetection ÁĞ±í
+// åå¤„ç†å‡½æ•°ï¼šå°† raw tensor è½¬ä¸ºæ£€æµ‹ç»“æœï¼Œæ‰§è¡Œ NMSï¼Œç”Ÿæˆ YoloDetection åˆ—è¡¨
 std::vector<YoloDetection> YoloDetector::postprocess(const cv::Mat& image, std::vector<float>& output)
 {
 	std::vector<YoloDetection> detections;
@@ -104,12 +115,12 @@ std::vector<YoloDetection> YoloDetector::postprocess(const cv::Mat& image, std::
 	std::vector<float> scores;
 	std::vector<int> classIds;
 
-	// ±éÀúÃ¿¸öÔ¤²â¿ò
+	// éå†æ¯ä¸ªé¢„æµ‹æ¡†
 	for (size_t i = 0; i < numBoxes; ++i) {
 		float objConf = output[i * numElementsPerBox + 4];
 		if (objConf < confThreshold) continue;
 
-		// »ñÈ¡Ã¿¸öÀàµÄµÃ·Ö£¬Ìô³ö×î´óÀà
+		// è·å–æ¯ä¸ªç±»çš„å¾—åˆ†ï¼ŒæŒ‘å‡ºæœ€å¤§ç±»
 		float* classScores = &output[i * numElementsPerBox + 5];
 		int classId = std::max_element(classScores, classScores + numClasses) - classScores;
 		float classConf = classScores[classId];
@@ -117,19 +128,19 @@ std::vector<YoloDetection> YoloDetector::postprocess(const cv::Mat& image, std::
 		float confidence = objConf * classConf;
 		if (confidence < confThreshold) continue;
 
-		// ÖĞĞÄµã×ø±ê + ¿í¸ß
+		// ä¸­å¿ƒç‚¹åæ ‡ + å®½é«˜
 		float cx = output[i * numElementsPerBox + 0];
 		float cy = output[i * numElementsPerBox + 1];
 		float w = output[i * numElementsPerBox + 2];
 		float h = output[i * numElementsPerBox + 3];
 
-		// ½«ÍÆÀí×ø±ê»¹Ô­µ½Ô­Í¼×ø±ê
+		// å°†æ¨ç†åæ ‡è¿˜åŸåˆ°åŸå›¾åæ ‡
 		int x = static_cast<int>((cx - w / 2.0f) / scaleX);
 		int y = static_cast<int>((cy - h / 2.0f) / scaleY);
 		int width = static_cast<int>(w / scaleX);
 		int height = static_cast<int>(h / scaleY);
 
-		// ±ß½ç±£»¤£¬±ÜÃâÔ½½ç
+		// è¾¹ç•Œä¿æŠ¤ï¼Œé¿å…è¶Šç•Œ
 		x = std::max(0, x);
 		y = std::max(0, y);
 		width = std::min(width, cols - x);
@@ -140,11 +151,11 @@ std::vector<YoloDetection> YoloDetector::postprocess(const cv::Mat& image, std::
 		classIds.push_back(classId);
 	}
 
-	// Ö´ĞĞ·Ç¼«´óÖµÒÖÖÆ£¨NMS£©
+	// æ‰§è¡Œéæå¤§å€¼æŠ‘åˆ¶ï¼ˆNMSï¼‰
 	std::vector<int> indices;
 	cv::dnn::NMSBoxes(boxes, scores, confThreshold, iouThreshold, indices);
 
-	// ¹¹Ôì×îÖÕ¼ì²â½á¹û
+	// æ„é€ æœ€ç»ˆæ£€æµ‹ç»“æœ
 	std::vector<YoloDetection> results;
 	for (int idx : indices) {
 		YoloDetection det;
@@ -157,7 +168,7 @@ std::vector<YoloDetection> YoloDetector::postprocess(const cv::Mat& image, std::
 	return results;
 }
 
-// cv::Mat (BGR) <-> QImage (RGB) ×ª»»
+// cv::Mat (BGR) <-> QImage (RGB) è½¬æ¢
 static QImage cvMatToQImage(const cv::Mat& bgr) {
 	cv::Mat rgb; cv::cvtColor(bgr, rgb, cv::COLOR_BGR2RGB);
 	return QImage(rgb.data, rgb.cols, rgb.rows, rgb.step, QImage::Format_RGB888).copy();
@@ -170,19 +181,19 @@ static cv::Mat qImageToCvMat(const QImage& img) {
 	return bgr.clone();
 }
 
-// »æÖÆ¼ì²â½á¹û£¨ºì¿ò + ±êÇ© + ÖÃĞÅ¶È£©£¬ÓÃÓÚ¿ÉÊÓ»¯
+// ç»˜åˆ¶æ£€æµ‹ç»“æœï¼ˆçº¢æ¡† + æ ‡ç­¾ + ç½®ä¿¡åº¦ï¼‰ï¼Œç”¨äºå¯è§†åŒ–
 void drawDetections(cv::Mat& image, const std::vector<YoloDetection>& detections)
 {
-#if 0 // Ê¹ÓÃ Qt »æÍ¼ÖĞÎÄ
+#if 0 // ä½¿ç”¨ Qt ç»˜å›¾ä¸­æ–‡
 	// 1) Mat -> QImage
 	QImage qimg = cvMatToQImage(image);
 
-	// 2) ÓÃ QPainter »­¿òºÍÖĞÎÄ
+	// 2) ç”¨ QPainter ç”»æ¡†å’Œä¸­æ–‡
 	QPainter p(&qimg);
 	p.setRenderHint(QPainter::Antialiasing);
 	p.setRenderHint(QPainter::TextAntialiasing);
 
-	// Ñ¡ÔñÖ§³ÖÖĞÎÄµÄ×ÖÌå£¨Windows ÏÂ¡°Î¢ÈíÑÅºÚ¡±£»¿çÆ½Ì¨¿ÉÓÃ Noto Sans CJK£©
+	// é€‰æ‹©æ”¯æŒä¸­æ–‡çš„å­—ä½“ï¼ˆWindows ä¸‹â€œå¾®è½¯é›…é»‘â€ï¼›è·¨å¹³å°å¯ç”¨ Noto Sans CJKï¼‰
 	QFont font("Microsoft YaHei", 16, QFont::DemiBold);
 	p.setFont(font);
 	QFontMetrics fm(font);
@@ -190,22 +201,22 @@ void drawDetections(cv::Mat& image, const std::vector<YoloDetection>& detections
 	for (const auto& det : detections) {
 		QRect r(det.bbox.x(), det.bbox.y(), det.bbox.width(), det.bbox.height());
 
-		// ±ß¿ò
+		// è¾¹æ¡†
 		p.setPen(QPen(QColor(255, 0, 0), 2));
 		p.setBrush(Qt::NoBrush);
 		p.drawRect(r);
 
-		// ±êÇ© & ÖÃĞÅ¶È£¨ÖĞÎÄ OK£©
+		// æ ‡ç­¾ & ç½®ä¿¡åº¦ï¼ˆä¸­æ–‡ OKï¼‰
 		QString text = QString("%1 %2%%")
 			.arg(det.label)
 			.arg(qRound(det.confidence * 100.0));
 
-		// ÎÄ×Ö±³¾°Ìõ£¨ºìÉ«£©£¬±ÜÃâÕû¿éÕÚµ²
+		// æ–‡å­—èƒŒæ™¯æ¡ï¼ˆçº¢è‰²ï¼‰ï¼Œé¿å…æ•´å—é®æŒ¡
 		QRect tb = fm.boundingRect(text).adjusted(-6, -4, 6, 4);
 		tb.moveTopLeft(QPoint(r.x(), std::max(0, r.y() - tb.height())));
 		p.fillRect(tb, QColor(255, 0, 0));
 
-		// °×É«ÎÄ×Ö
+		// ç™½è‰²æ–‡å­—
 		p.setPen(Qt::white);
 		p.drawText(tb.adjusted(6, 4, -6, -4), text);
 	}
@@ -216,11 +227,11 @@ void drawDetections(cv::Mat& image, const std::vector<YoloDetection>& detections
 #else
 	for (const auto& det : detections) {
 		cv::Rect rect(det.bbox.x(), det.bbox.y(), det.bbox.width(), det.bbox.height());
-		cv::rectangle(image, rect, cv::Scalar(0, 0, 255), 2);  // ºìÉ«±ß¿ò
+		cv::rectangle(image, rect, cv::Scalar(0, 0, 255), 2);  // çº¢è‰²è¾¹æ¡†
 
 		std::string label = det.label.toStdString() + " " + std::to_string(int(det.confidence * 100)) + "%";
 
-		// ÉèÖÃÎÄ×Ö×ÖÌå¡¢´ÖÏ¸¡¢±³¾°¿ò´óĞ¡
+		// è®¾ç½®æ–‡å­—å­—ä½“ã€ç²—ç»†ã€èƒŒæ™¯æ¡†å¤§å°
 		double fontScale = 1.6;
 		int thickness = 2;
 		int padding = 6;
@@ -228,12 +239,12 @@ void drawDetections(cv::Mat& image, const std::vector<YoloDetection>& detections
 
 		cv::Size textSize = cv::getTextSize(label, cv::FONT_HERSHEY_SIMPLEX, fontScale, thickness, &baseline);
 
-		// ºìÉ«±³¾°¿ò
+		// çº¢è‰²èƒŒæ™¯æ¡†
 		cv::Point bg_tl(rect.x, rect.y - textSize.height - padding * 2);
 		cv::Point bg_br(rect.x + textSize.width + padding * 2, rect.y);
 		cv::rectangle(image, bg_tl, bg_br, cv::Scalar(0, 0, 255), cv::FILLED);
 
-		// °×É«ÎÄ×Ö
+		// ç™½è‰²æ–‡å­—
 		cv::putText(image, label,
 			cv::Point(rect.x + padding, rect.y - padding),
 			cv::FONT_HERSHEY_SIMPLEX, fontScale,
@@ -247,7 +258,7 @@ void YoloDetector::initIoFromModel()
 {
 	Ort::AllocatorWithDefaultOptions alloc;
 
-	// ÊäÈë/Êä³öÃû
+	// è¾“å…¥/è¾“å‡ºå
 	inNamesStr.clear(); outNamesStr.clear();
 	inNames.clear();    outNames.clear();
 
@@ -264,26 +275,26 @@ void YoloDetector::initIoFromModel()
 	for (auto& s : inNamesStr)  inNames.push_back(s.c_str());
 	for (auto& s : outNamesStr) outNames.push_back(s.c_str());
 
-	// ÊäÈëĞÎ×´£¨Í¨³£ÊÇ [1,3,H,W] »ò [-1,3,-1,-1]£©
+	// è¾“å…¥å½¢çŠ¶ï¼ˆé€šå¸¸æ˜¯ [1,3,H,W] æˆ– [-1,3,-1,-1]ï¼‰
 	auto ti = session->GetInputTypeInfo(0).GetTensorTypeAndShapeInfo();
 	auto shp = ti.GetShape();
 
-	dynamicInput = true; // ÏÈ¼ÙÉèÊÇ¶¯Ì¬
+	dynamicInput = true; // å…ˆå‡è®¾æ˜¯åŠ¨æ€
 	if (shp.size() == 4) {
 		int64_t H = shp[2];
 		int64_t W = shp[3];
-		if (H > 0 && W > 0) {           // ¾²Ì¬³ß´ç
+		if (H > 0 && W > 0) {           // é™æ€å°ºå¯¸
 			inputHeight = (int)H;
 			inputWidth = (int)W;
 			dynamicInput = false;
 		}
 	}
 
-	// ¶µµ×£¨ÈÔ²»È·¶¨Ê±£©£¬Ä¬ÈÏ 896
+	// å…œåº•ï¼ˆä»ä¸ç¡®å®šæ—¶ï¼‰ï¼Œé»˜è®¤ 896
 	if (inputWidth == 0 || inputHeight == 0) {
 		inputWidth = 896;
 		inputHeight = 896;
-		dynamicInput = true;            // ÔÊĞíºóĞø°´Ö¡×ÔÊÊÓ¦
+		dynamicInput = true;            // å…è®¸åç»­æŒ‰å¸§è‡ªé€‚åº”
 	}
 
 #ifdef _DEBUG
@@ -297,3 +308,33 @@ void YoloDetector::initIoFromModel()
 #endif
 }
 
+bool YoloDetector::createOrtSession(const std::string& modelPath) {
+	try {
+		Ort::SessionOptions so;
+		so.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_ALL);
+		so.SetIntraOpNumThreads(4);
+		so.SetInterOpNumThreads(2);
+
+		if (m_useGPU) {
+			qDebug() << "[YoloDetector] Prefer accel, device =" << m_deviceId;
+			AppendWithFallback(so, m_deviceId);   // <<<<<< è¿™é‡Œç”¨ m_deviceId
+		}
+		else {
+			qDebug() << "[YoloDetector] Force CPU";
+		}
+
+		std::wstring wModelPath(modelPath.begin(), modelPath.end());
+		session = std::make_unique<Ort::Session>(env, wModelPath.c_str(), so);
+		return true;
+	}
+	catch (const Ort::Exception& e) {
+		qDebug() << "[YoloDetector] createOrtSession failed:" << e.what();
+		return false;
+	}
+}
+
+
+bool YoloDetector::recreateSession(const std::string& modelPath) {
+	// unique_ptr ä¼šè‡ªåŠ¨é‡Šæ”¾æ—§ sessionï¼Œè¿™é‡Œç›´æ¥æ–°å»º
+	return createOrtSession(modelPath);
+}

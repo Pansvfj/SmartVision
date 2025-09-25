@@ -18,6 +18,16 @@ public:
 	// 图像推理接口，输入 OpenCV 图像，输出分类标签与置信度对（Top-K）
 	std::vector<std::pair<std::string, float>> infer(const cv::Mat& image);
 
+	// === 新增：推理设备控制 ===
+	void setUseGPU(bool on) { m_useGPU = on; }
+	void setDeviceId(int id) { m_deviceId = id; }
+	bool useGPU() const { return m_useGPU; }
+	int  deviceId() const { return m_deviceId; }
+	bool recreateSession(const std::string& modelPath);
+
+private:
+	bool createOrtSession(const std::string& modelPath);
+
 private:
 	// 加载标签文件（如 imagenet_classes.txt），每行一个类别
 	void loadLabels(const std::string& labelPath);
@@ -36,4 +46,8 @@ private:
 
 	// 分类标签名称
 	std::vector<std::string> m_labels;
+
+	bool m_useGPU = true;
+	int  m_deviceId = 0;
+	std::string m_modelPath; // 记住路径便于热重建
 };

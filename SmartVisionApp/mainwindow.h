@@ -7,6 +7,8 @@
 #include <QTextToSpeech>
 #include <QThread>
 #include <QPushButton>
+#include <QComboBox>
+#include <QSpinBox>
 
 class ModelRunner;
 class TranslateTask;
@@ -71,4 +73,14 @@ private:
 
 	// 摄像头窗口
 	CameraWindow* m_cameraWindow = nullptr;
+
+	// UI 控件（新增）
+	QComboBox* m_providerBox = nullptr;
+	QSpinBox* m_deviceSpin = nullptr;
+	QPushButton* m_applyInferBtn = nullptr;
+
+	// 状态（新增）
+	bool m_useGPU = true;
+	int  m_deviceId = 0;
+
 };

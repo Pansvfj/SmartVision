@@ -54,6 +54,52 @@ MainWindow::MainWindow(QWidget* parent)
 	hlHead->addWidget(leHead);
 	hlHead->addWidget(pbCamera);
 
+	// === Inference Toolbar (Provider + DeviceId + Apply) ===
+	m_providerBox = new QComboBox(this);
+	m_providerBox->addItem("CPU");
+	m_providerBox->addItem("GPU");
+	m_providerBox->setCurrentIndex(1); // 默认 GPU
+	m_deviceSpin = new QSpinBox(this);
+	m_deviceSpin->setRange(0, 15);
+	m_deviceSpin->setValue(0);
+	m_applyInferBtn = new QPushButton(tr("Apply"), this);
+
+	// 摆到头部栏
+	hlHead->addSpacing(12);
+	hlHead->addWidget(new QLabel(tr("Provider:"), this));
+	hlHead->addWidget(m_providerBox);
+	hlHead->addWidget(new QLabel(tr("DeviceId:"), this));
+	hlHead->addWidget(m_deviceSpin);
+	hlHead->addWidget(m_applyInferBtn);
+
+	// 连接
+	connect(m_applyInferBtn, &QPushButton::clicked, this, [=]() {
+		m_useGPU = (m_providerBox->currentIndex() == 1);
+		m_deviceId = m_deviceSpin->value();
+
+		// === 应用到三个推理对象 ===
+		if (m_model) {
+			m_model->setUseGPU(m_useGPU);
+			m_model->setDeviceId(m_deviceId);
+			m_model->recreateSession("D:/Projects/SmartVision/model/mobilenetv2-7.onnx");
+		}
+		if (m_generalYoloDetector) {
+			m_generalYoloDetector->setUseGPU(m_useGPU);
+			m_generalYoloDetector->setDeviceId(m_deviceId);
+			m_generalYoloDetector->recreateSession("D:/Projects/SmartVision/model/yolov5s.onnx");
+		}
+		if (m_fishYoloDetector) {
+			m_fishYoloDetector->setUseGPU(m_useGPU);
+			m_fishYoloDetector->setDeviceId(m_deviceId);
+			m_fishYoloDetector->recreateSession("D:/Projects/SmartVision/model/fish.onnx");
+		}
+
+		// 友好提示
+		QDialogHint::create(tr("Switched to %1 (device %2)")
+			.arg(m_useGPU ? "GPU" : "CPU").arg(m_deviceId), 1600, this);
+		});
+
+
 	m_lbImage = new QLabel(this);
 	m_lbImage->setAlignment(Qt::AlignCenter);
 	m_lbImage->setMinimumHeight(400);
@@ -180,6 +226,9 @@ MainWindow::MainWindow(QWidget* parent)
 	layout->addLayout(hlayoutText);
 
 	g_mainWindow = this;
+
+	for (auto& p : Ort::GetAvailableProviders())
+		qDebug() << "[ORT] provider:" << p.c_str();
 }
 
 MainWindow::~MainWindow() {

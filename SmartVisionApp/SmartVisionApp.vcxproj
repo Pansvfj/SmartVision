@@ -101,19 +101,19 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|Win32'">
-    <IncludePath>D:\openCV\opencv\build\include;D:\Projects\SmartVision\3rdParty\onnxruntime\include;$(VC_IncludePath);$(WindowsSDK_IncludePath);</IncludePath>
+    <IncludePath>D:\openCV\opencv\build\include;D:\Projects\SmartVision\3rdParty\Microsoft.ML.OnnxRuntime.DirectML.1.22.1\build\native\include;$(VC_IncludePath);$(WindowsSDK_IncludePath);</IncludePath>
     <LibraryPath>D:\openCV\opencv\build\x64\vc16\lib;D:\Projects\SmartVision\3rdParty\onnxruntime\lib;$(VC_LibraryPath_x86);$(WindowsSDK_LibraryPath_x86)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <IncludePath>D:\openCV\opencv\build\include;D:\Projects\SmartVision\3rdParty\onnxruntime\include;$(IncludePath)</IncludePath>
-    <LibraryPath>D:\openCV\opencv\build\x64\vc16\lib;D:\Projects\SmartVision\3rdParty\onnxruntime\lib;$(LibraryPath)</LibraryPath>
+    <IncludePath>D:\openCV\opencv\build\include;D:\Projects\SmartVision\3rdParty\Microsoft.ML.OnnxRuntime.DirectML.1.22.1\build\native\include;$(IncludePath)</IncludePath>
+    <LibraryPath>D:\Projects\SmartVision\3rdParty\onnxruntime\lib;D:\openCV\opencv\build\x64\vc16\lib;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|Win32'">
-    <IncludePath>D:\openCV\opencv\build\include;D:\Projects\SmartVision\3rdParty\onnxruntime\include;$(VC_IncludePath);$(WindowsSDK_IncludePath);</IncludePath>
+    <IncludePath>D:\openCV\opencv\build\include;D:\Projects\SmartVision\3rdParty\Microsoft.ML.OnnxRuntime.DirectML.1.22.1\build\native\include;$(VC_IncludePath);$(WindowsSDK_IncludePath);</IncludePath>
     <LibraryPath>D:\openCV\opencv\build\x64\vc16\lib;D:\Projects\SmartVision\3rdParty\onnxruntime\lib;$(VC_LibraryPath_x86);$(WindowsSDK_LibraryPath_x86)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <IncludePath>D:\openCV\opencv\build\include;D:\Projects\SmartVision\3rdParty\onnxruntime\include;$(VC_IncludePath);$(WindowsSDK_IncludePath);</IncludePath>
+    <IncludePath>D:\openCV\opencv\build\include;D:\Projects\SmartVision\3rdParty\Microsoft.ML.OnnxRuntime.DirectML.1.22.1\build\native\include;$(VC_IncludePath);$(WindowsSDK_IncludePath);</IncludePath>
     <LibraryPath>D:\openCV\opencv\build\x64\vc16\lib;D:\Projects\SmartVision\3rdParty\onnxruntime\lib;$(VC_LibraryPath_x64);$(WindowsSDK_LibraryPath_x64)</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">

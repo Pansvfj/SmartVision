@@ -58,6 +58,34 @@ CameraWindow::CameraWindow(QWidget* parent)
 		m_videoLabel->setText(tr("摄像头启动失败"));
 	});
 	connect(m_yoloWork, &YoloStreamWork::signalGetResult, this, &CameraWindow::onYoloResult);
+
+	// === Inference mini bar ===
+	QHBoxLayout* inferBar = new QHBoxLayout();
+	inferBar->addWidget(new QLabel(tr("Provider:"), this));
+	m_camProvBox = new QComboBox(this);
+	m_camProvBox->addItem("CPU");
+	m_camProvBox->addItem("GPU");
+	m_camProvBox->setCurrentIndex(1);
+	inferBar->addWidget(m_camProvBox);
+	inferBar->addWidget(new QLabel(tr("DeviceId:"), this));
+	m_camDevSpin = new QSpinBox(this);
+	m_camDevSpin->setRange(0, 15);
+	inferBar->addWidget(m_camDevSpin);
+	m_camApplyBtn = new QPushButton(tr("Apply"), this);
+	inferBar->addWidget(m_camApplyBtn);
+	mainLayout->addLayout(inferBar);
+
+	// 连接
+	connect(m_camApplyBtn, &QPushButton::clicked, this, [=]() {
+		m_camUseGPU = (m_camProvBox->currentIndex() == 1);
+		m_camDevId = m_camDevSpin->value();
+		if (m_yolo) {
+			m_yolo->setUseGPU(m_camUseGPU);
+			m_yolo->setDeviceId(m_camDevId);
+			m_yolo->recreateSession("D:/Projects/SmartVision/model/yolov5s.onnx");
+		}
+		});
+
 }
 
 CameraWindow::~CameraWindow()
